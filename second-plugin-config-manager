@@ -1,0 +1,44 @@
+package pl.oszymono.group.boostmobranking.manager;
+
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Item;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.List;
+
+public class ConfigManager {
+
+    FileConfiguration config;
+
+    public ConfigManager(FileConfiguration config) {
+        this.config = config;
+    }
+
+    public ItemStack getTopOne() {
+        return config.getItemStack("top1");
+    }
+
+    public ItemStack getSecondOne() {
+        return config.getItemStack("top2");
+    }
+
+    public ItemStack getThirdOne() {
+        return config.getItemStack("top3");
+    }
+    public void setTopOne(ItemStack item) {
+        config.set("top1", item);
+    }
+
+    public void setSecondOne(ItemStack item) {
+        config.set("top2", item);
+    }
+
+    public void setThirdOne(ItemStack item) {
+        config.set("top3", item);
+    }
+
+    public EntityType getMobType() {
+        return EntityType.valueOf(config.getString("mob").toUpperCase());
+    }
+}
