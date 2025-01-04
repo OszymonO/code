@@ -1,0 +1,535 @@
+package pl.oszymono.group.boostminestaritems1;
+
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
+
+import java.util.*;
+
+public final class Boost_MineStarItems_1 extends JavaPlugin implements Listener, CommandExecutor {
+
+    private final NamespacedKey customModelDataKey = new NamespacedKey(this, "custom_model_data");
+
+    public int x1, z1 = -150;
+    public int x2, z2 = 150;
+
+    Map<UUID, Boolean> fall = new HashMap<UUID, Boolean>();
+
+    @Override
+    public void onEnable() {
+        getCommand("items").setExecutor(this::items);
+        getServer().getPluginManager().registerEvents(this ,this);
+        new BukkitRunnable(){
+            @Override
+            public void run() {
+                for (Player p  : Bukkit.getOnlinePlayers()) {
+                    ItemStack hand = p.getInventory().getItemInMainHand();
+                    if (hand != null &&  hand.getType().equals(Material.STICK) && hand.hasItemMeta() && hand.getItemMeta().hasCustomModelData()) {
+                        int cmd = hand.getItemMeta().getCustomModelData();
+                        String enchant = "";
+                        if (cmd == 1) {
+                            enchant = "Brak";
+                        } else if (cmd == 2) {
+                            enchant = "Siłacz Tygodnia";
+                        } else if (cmd == 3) {
+                            enchant = "Pędziwiatr";
+                        } else if (cmd == 4) {
+                            enchant = "Górnik Miesiąca";
+                        } else if (cmd == 5) {
+                            enchant = "Superman";
+                        } else if (cmd == 6) {
+                            enchant = "Latać Każdy Może";
+                        }
+                        TextComponent text = new TextComponent(net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', "&fAktualne zaklęcie: &e" + enchant));
+                        p.spigot().sendMessage(ChatMessageType.ACTION_BAR, text);
+                    }
+                    if (p.getInventory().getChestplate() != null &&  p.getInventory().getChestplate().getType().equals(Material.NETHERITE_CHESTPLATE) && p.getInventory().getChestplate().hasItemMeta() && p.getInventory().getChestplate().getItemMeta().hasCustomModelData() && p.getInventory().getChestplate().getItemMeta().getCustomModelData() == 7) {
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 60, 1));
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 0));
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0));
+                    }
+                }
+            }
+        }.runTaskTimer(this, 0, 20);
+    }
+
+    @EventHandler
+    public void onHit(EntityDamageByEntityEvent e) {
+        if (e.getEntity() instanceof Player) {
+            Player p = (Player) e.getEntity();
+            if (p.getInventory().getChestplate() != null && p.getInventory().getChestplate().getType().equals(Material.NETHERITE_CHESTPLATE) && p.getInventory().getChestplate().hasItemMeta() && p.getInventory().getChestplate().getItemMeta().hasCustomModelData() && p.getInventory().getChestplate().getItemMeta().getCustomModelData() == 7) {
+                Integer rand = new Random().nextInt(8);
+                if (rand == 3) {
+                    e.setCancelled(true);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onProjectileLaunch(ProjectileLaunchEvent e) {
+        if (e.getEntity().getShooter() instanceof Player) {
+            Player p = (Player) e.getEntity().getShooter();
+            ItemStack itemInHand = p.getInventory().getItemInMainHand();
+
+            if (itemInHand != null && itemInHand.hasItemMeta() && itemInHand.getItemMeta().hasCustomModelData()) {
+                if (!p.hasCooldown(Material.SNOWBALL)) {
+                    int customModelData = itemInHand.getItemMeta().getCustomModelData();
+
+                    e.getEntity().getPersistentDataContainer().set(customModelDataKey, PersistentDataType.INTEGER, customModelData);
+                    p.setCooldown(Material.SNOWBALL, 700);
+                } else {
+                    e.setCancelled(true);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onProjectileHit(ProjectileHitEvent e) {
+        Projectile proj = e.getEntity();
+
+        if (proj.getPersistentDataContainer().has(customModelDataKey, PersistentDataType.INTEGER)) {
+            int customModelData = proj.getPersistentDataContainer().get(customModelDataKey, PersistentDataType.INTEGER);
+            if (customModelData == 1) {
+                if (e.getHitEntity() instanceof Player) {
+                    Player p = (Player) e.getHitEntity();
+                    if (p.getInventory().getHelmet() != null && p.getInventory().getHelmet().getType() != Material.CARVED_PUMPKIN) {
+                        ItemStack helmet = p.getInventory().getHelmet();
+                        ItemStack pumpkin = new ItemStack(Material.CARVED_PUMPKIN);
+                        ItemMeta pumpkinM = pumpkin.getItemMeta();
+                        pumpkinM.addEnchant(Enchantment.BINDING_CURSE, 1, true);
+                        pumpkinM.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                        pumpkinM.setDisplayName(ChatColor.GOLD + "Trolled!!!");
+                        pumpkin.setItemMeta(pumpkinM);
+                        p.getInventory().setHelmet(pumpkin);
+                        new BukkitRunnable(){
+                            @Override
+                            public void run() {
+                                p.getInventory().setHelmet(helmet);
+                            }
+                        }.runTaskLater(this, 300);
+                    } else if (p.getInventory().getHelmet() == null) {
+                        ItemStack pumpkin = new ItemStack(Material.CARVED_PUMPKIN);
+                        ItemMeta pumpkinM = pumpkin.getItemMeta();
+                        pumpkinM.addEnchant(Enchantment.BINDING_CURSE, 1, true);
+                        pumpkinM.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                        pumpkinM.setDisplayName(ChatColor.GOLD + "Trolled!!!");
+                        pumpkin.setItemMeta(pumpkinM);
+                        p.getInventory().setHelmet(pumpkin);
+                        new BukkitRunnable(){
+                            @Override
+                            public void run() {
+                                p.getInventory().setHelmet(null);
+                            }
+                        }.runTaskLater(this, 300);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent e) {
+        if (e.getView().getTitle().equalsIgnoreCase("Różdżka")) {
+            if (e.getView().getTopInventory().getType() == InventoryType.HOPPER) {
+                ItemStack item = e.getPlayer().getInventory().getItemInMainHand();
+                ItemStack itemOFF = e.getPlayer().getInventory().getItemInOffHand();
+                ItemMeta meta = item.getItemMeta();
+                ItemMeta metaOFF = itemOFF.getItemMeta();
+                if (e.getView().getTopInventory().getItem(2) != null) {
+                    if (e.getView().getTopInventory().getItem(2).getType().equals(Material.ENCHANTED_BOOK) && e.getView().getTopInventory().getItem(2).hasItemMeta() && e.getView().getTopInventory().getItem(2).getItemMeta().hasCustomModelData()) {
+                        int cmd = e.getView().getTopInventory().getItem(2).getItemMeta().getCustomModelData();
+                        Player p = (Player) e.getPlayer();
+                        if (p.getInventory().getItemInMainHand() != null && p.getInventory().getItemInMainHand().getType() == Material.STICK && p.getInventory().getItemInMainHand().hasItemMeta() && p.getInventory().getItemInMainHand().getItemMeta().hasCustomModelData()) {
+                            meta.setCustomModelData(cmd);
+                            item.setItemMeta(meta);
+                            p.getInventory().setItemInMainHand(item);
+                        } else {
+                            metaOFF.setCustomModelData(cmd);
+                            itemOFF.setItemMeta(metaOFF);
+                            p.getInventory().setItemInOffHand(itemOFF);
+                        }
+                    } else {
+                        Player p = (Player) e.getPlayer();
+                        if (p.getInventory().getItemInMainHand() != null && p.getInventory().getItemInMainHand().getType() == Material.STICK && p.getInventory().getItemInMainHand().hasItemMeta() && p.getInventory().getItemInMainHand().getItemMeta().hasCustomModelData()) {
+                            meta.setCustomModelData(1);
+                            item.setItemMeta(meta);
+                            p.getInventory().setItemInMainHand(item);
+                        } else {
+                            metaOFF.setCustomModelData(1);
+                            itemOFF.setItemMeta(metaOFF);
+                            p.getInventory().setItemInOffHand(itemOFF);
+                        }
+                    }
+                } else {
+                    Player p = (Player) e.getPlayer();
+                    if (p.getInventory().getItemInMainHand() != null && p.getInventory().getItemInMainHand().getType() == Material.STICK && p.getInventory().getItemInMainHand().hasItemMeta() && p.getInventory().getItemInMainHand().getItemMeta().hasCustomModelData()) {
+                        meta.setCustomModelData(1);
+                        item.setItemMeta(meta);
+                        p.getInventory().setItemInMainHand(item);
+                    } else {
+                        metaOFF.setCustomModelData(1);
+                        itemOFF.setItemMeta(metaOFF);
+                        p.getInventory().setItemInOffHand(itemOFF);
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent e) {
+        if (e.getView().getTitle().equalsIgnoreCase("Różdżka")) {
+            if (e.getCurrentItem() == null) return;
+            if (e.getCurrentItem().getType().equals(Material.BLACK_STAINED_GLASS_PANE) && e.getCurrentItem().hasItemMeta() && e.getCurrentItem().getItemMeta().hasCustomModelData() && e.getCurrentItem().getItemMeta().getCustomModelData() == 1) {
+                e.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamageEntity(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player) {
+            Player p = (Player) e.getDamager();
+            if (p.getInventory().getItemInMainHand() != null && p.getInventory().getItemInMainHand().hasItemMeta() && p.getInventory().getItemInMainHand().getType().equals(Material.IRON_AXE) && p.getInventory().getItemInMainHand().getItemMeta().hasCustomModelData() && p.getInventory().getItemInMainHand().getItemMeta().getCustomModelData() == 1) {
+                if (!(p.hasCooldown(Material.IRON_AXE))) {
+                    e.setDamage(e.getDamage() + (-(p.getVelocity().getY() * 8) * e.getDamage()));
+                    fall.put(p.getUniqueId(), true);
+                    p.setCooldown(Material.IRON_AXE, 2400);
+                    new BukkitRunnable(){
+                        @Override
+                        public void run() {
+                            fall.put(p.getUniqueId(), null);
+                        }
+                    }.runTaskLater(this, 30);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInteract(PlayerInteractEvent e) {
+        if (e.getAction() == Action.LEFT_CLICK_AIR || e.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (e.hasItem() && e.getItem().getType().equals(Material.STICK) && e.getItem().hasItemMeta() && e.getItem().getItemMeta().hasCustomModelData()) {
+                e.setCancelled(true);
+                Player p = e.getPlayer();
+                Inventory gui = Bukkit.createInventory(p, InventoryType.HOPPER, "Różdżka");
+                for (int i = 0; i < 5; i++) {
+                    ItemStack empty = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+                    ItemMeta emptyM = empty.getItemMeta();
+                    emptyM.setCustomModelData(1);
+                    emptyM.setDisplayName(" ");
+                    empty.setItemMeta(emptyM);
+                    gui.setItem(i, empty);
+                }
+                int cmd = e.getItem().getItemMeta().getCustomModelData();
+                if (cmd == 1) {
+                    gui.setItem(2, null);
+                } else if (cmd == 2) {
+                    ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+                    ItemMeta itemM = item.getItemMeta();
+                    itemM.setCustomModelData(2);
+                    itemM.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&F&F&5&D&0&0ѕ&x&F&F&5&C&0&0ɪ&x&F&F&5&A&0&0ʟ&x&F&F&5&9&0&0ᴀ&x&F&F&5&7&0&0ᴄ&x&F&F&5&6&0&0ᴢ &x&F&F&5&3&0&0ᴛ&x&F&F&5&1&0&0ʏ&x&F&F&5&0&0&0ɢ&x&F&F&4&E&0&0ᴏ&x&F&F&4&D&0&0ᴅ&x&F&F&4&B&0&0ɴ&x&F&F&4&A&0&0ɪ&x&F&F&4&8&0&0ᴀ"));
+                    List<String> lore = new ArrayList<String>();
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz &cbardzo silny&f!"));
+                    lore.add("");
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+                    itemM.setLore(lore);
+                    item.setItemMeta(itemM);
+                    gui.setItem(2, item);
+                } else if (cmd == 3) {
+                    ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+                    ItemMeta itemM = item.getItemMeta();
+                    itemM.setCustomModelData(3);
+                    itemM.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&3&3&A&C&F&Fᴘ&x&2&D&A&2&F&Fᴇ&x&2&8&9&7&F&Fᴅ&x&2&2&8&D&F&Fᴢ&x&1&C&8&3&F&Fɪ&x&1&7&7&8&F&Fᴡ&x&1&1&6&E&F&Fɪ&x&0&B&6&4&F&Fᴀ&x&0&6&5&9&F&Fᴛ&x&0&0&4&F&F&Fʀ"));
+                    List<String> lore = new ArrayList<String>();
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł &bszybko uciekać&f!"));
+                    lore.add("");
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+                    itemM.setLore(lore);
+                    item.setItemMeta(itemM);
+                    gui.setItem(2, item);
+                } else if (cmd == 4) {
+                    ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+                    ItemMeta itemM = item.getItemMeta();
+                    itemM.setCustomModelData(4);
+                    itemM.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&D&A&E&5&1&8ɢ&x&D&6&D&F&1&Cᴏ&x&D&3&D&9&2&0ʀ&x&C&F&D&3&2&4ɴ&x&C&B&C&E&2&9ɪ&x&C&8&C&8&2&Dᴋ &x&C&1&B&C&3&5ᴍ&x&B&D&B&6&3&9ɪ&x&B&9&B&0&3&Dᴇ&x&B&6&A&A&4&1ѕ&x&B&2&A&5&4&6ɪ&x&A&E&9&F&4&Aᴀ&x&A&B&9&9&4&Eᴄ&x&A&7&9&3&5&2ᴀ"));
+                    List<String> lore = new ArrayList<String>();
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł &eszybko kopać&f!"));
+                    lore.add("");
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+                    itemM.setLore(lore);
+                    item.setItemMeta(itemM);
+                    gui.setItem(2, item);
+                } else if (cmd == 5) {
+                    ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+                    ItemMeta itemM = item.getItemMeta();
+                    itemM.setCustomModelData(5);
+                    itemM.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&C&D&5&2&3&3ѕ&x&C&6&4&D&3&3ᴜ&x&B&F&4&9&3&2ᴘ&x&B&8&4&4&3&2ᴇ&x&B&2&3&F&3&2ʀ&x&A&B&3&A&3&2ᴍ&x&A&4&3&6&3&1ᴀ&x&9&D&3&1&3&1ɴ"));
+                    List<String> lore = new ArrayList<String>();
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł wystrzeliwać graczy w &6powietrze&f!"));
+                    lore.add("");
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+                    itemM.setLore(lore);
+                    item.setItemMeta(itemM);
+                    gui.setItem(2, item);
+                } else if (cmd == 6) {
+                    ItemStack item = new ItemStack(Material.ENCHANTED_BOOK);
+                    ItemMeta itemM = item.getItemMeta();
+                    itemM.setCustomModelData(6);
+                    itemM.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&2&8&A&E&C&8ʟ&x&2&9&A&A&C&5ᴀ&x&2&9&A&6&C&2ᴛ&x&2&A&A&2&B&Fᴀ&x&2&A&9&E&B&Dᴄ &x&2&C&9&6&B&7ᴋ&x&2&C&9&2&B&4ᴀ&x&2&D&8&D&B&1ᴢ&x&2&D&8&9&A&Eᴅ&x&2&E&8&5&A&Bʏ &x&2&F&7&D&A&6ᴍ&x&3&0&7&9&A&3ᴏ&x&3&0&7&5&A&0ᴢ&x&3&1&7&1&9&Dᴇ"));
+                    List<String> lore = new ArrayList<String>();
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł wystrzeliwać siebie w &bpowietrze&f!"));
+                    lore.add("");
+                    lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+                    itemM.setLore(lore);
+                    item.setItemMeta(itemM);
+                    gui.setItem(2, item);
+                }
+                p.openInventory(gui);
+            }
+        } else if (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (e.hasItem() && e.getItem().getType().equals(Material.STICK)  && e.getItem().hasItemMeta() && e.getItem().getItemMeta().hasCustomModelData()) {
+                int cmd = e.getItem().getItemMeta().getCustomModelData();
+                Player p = e.getPlayer();
+                if (!(p.hasCooldown(Material.STICK))) {
+                    if (cmd == 2) {
+                        p.setCooldown(Material.STICK, 2400);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 100, 3));
+                    } else if (cmd == 3) {
+                        p.setCooldown(Material.STICK, 1200);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 500, 2));
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 300, 3));
+                    } else if (cmd == 4) {
+                        p.setCooldown(Material.STICK, 1800);
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.FAST_DIGGING, 200, 9));
+                    } else if (cmd == 5) {
+                        p.setCooldown(Material.STICK, 6000);
+                        for (Player plr : Bukkit.getOnlinePlayers()) {
+                            if (plr.getUniqueId().equals(p.getUniqueId())) continue;
+                            if (p.getLocation().distance(plr.getLocation()) <= 15) {
+                                plr.setVelocity(new org.bukkit.util.Vector(0, 10, 0));
+                            }
+                        }
+                    } else if (cmd == 6) {
+                        p.setCooldown(Material.STICK, 3600);
+                        p.setVelocity(new Vector(0, 9, 0));
+                    }
+                }
+            } else if (e.hasItem() && e.getItem().getType().equals(Material.EXPERIENCE_BOTTLE)  && e.getItem().hasItemMeta() && e.getItem().getItemMeta().hasCustomModelData() && e.getItem().getItemMeta().getCustomModelData() == 1) {
+                e.setCancelled(true);
+                Player p = e.getPlayer();
+                ItemStack item = e.getItem();
+                item.setAmount(item.getAmount() - 1);
+                e.getItem().setAmount(item.getAmount());
+                for (int x = 3; x >= -3; x--) {
+                    for (int y = 3; y >= -3; y--) {
+                        for (int z = 3; z >= -3; z--) {
+                            Block block = p.getWorld().getBlockAt(p.getLocation().add(x, y, z));
+                            if (!block.getType().equals(Material.BEDROCK)) {
+                                if (!((block.getLocation().getX() >= 52 && block.getLocation().getX() <= 223) && (block.getLocation().getZ() >= -225 && block.getLocation().getZ() <= -56))) {
+                                    block.breakNaturally();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityDamage(EntityDamageEvent e) {
+        if (e.getCause().equals(EntityDamageEvent.DamageCause.FALL)) {
+            if (e.getEntity() instanceof Player) {
+                Player p = (Player) e.getEntity();
+                if (fall.get(p.getUniqueId()) != null && fall.get(p.getUniqueId())) {
+                    fall.put(p.getUniqueId(), false);
+                    e.setDamage(0);
+                }
+            }
+        }
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent e) {
+        for (Material mat : Material.values()) {
+            if (mat.isItem()) {
+                e.getEntity().setCooldown(mat, 0);
+            }
+        }
+    }
+
+    public boolean items(CommandSender sender, Command command, String label, String[] args) {
+        if (sender instanceof Player) {
+            Player p = (Player) sender;
+            Inventory gui = Bukkit.createInventory(p, 27, "Itemy");
+            ItemStack item1 = new ItemStack(Material.NETHERITE_CHESTPLATE);
+            ItemMeta  itemM1 = item1.getItemMeta();
+            itemM1.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&F&F&7&C&0&0ɢ&x&F&F&9&1&0&0ᴡ&x&F&F&A&6&0&0ɪ&x&F&1&F&F&0&0ᴇ&x&7&9&F&F&2&3ᴢ&x&0&0&F&F&4&5ᴅ&x&0&0&F&F&6&Eɴ&x&0&0&F&F&9&7ʏ &x&0&0&9&8&F&Fɴ&x&0&0&3&0&F&Fᴀ&x&4&3&2&0&F&Fᴘ&x&8&5&1&0&F&Fɪ&x&C&8&0&0&F&Fᴇ&x&D&A&0&0&D&3ʀ&x&E&D&0&0&A&8ѕ&x&F&F&0&0&7&Cɴ&x&F&F&0&0&3&Eɪ&x&F&F&0&0&0&0ᴋ"));
+            itemM1.setCustomModelData(7);
+            List<String> lore = new ArrayList<String>();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &6Przedmiot jedyny w swoim rodzaju!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Nie da się go &c&lzniszczyć &7w żaden sposób!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&7= &eBonusy &7po założeniu:"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&7↪ &cSiła II"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&7↪ &bSzybkość I"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&7↪ &6Odporność na ogień"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&7↪ &dSzansa na zablokowania uderzenia"));
+            itemM1.setLore(lore);
+            itemM1.setUnbreakable(true);
+            itemM1.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            itemM1.addItemFlags(ItemFlag.HIDE_UNBREAKABLE);
+            itemM1.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            itemM1.addEnchant(Enchantment.PROTECTION_ENVIRONMENTAL, 5, true);
+            item1.setItemMeta(itemM1);
+            gui.setItem(0, item1);
+            ItemStack item2 = new ItemStack(Material.STICK);
+            ItemMeta itemM2 = item2.getItemMeta();
+            itemM2.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&C&8&2&8&2&8ʀ&x&C&5&2&9&2&9ᴏ&x&C&1&2&9&2&9ᴢ&x&B&E&2&A&2&Aᴅ&x&B&B&2&B&2&Bᴢ&x&B&7&2&B&2&Bᴋ&x&B&4&2&C&2&Cᴀ &x&A&E&2&E&2&Eᴄ&x&A&A&2&E&2&Eᴢ&x&A&7&2&F&2&Fᴀ&x&A&4&3&0&3&0ʀ&x&A&0&3&0&3&0ᴏ&x&9&D&3&1&3&1ᴡ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężna różdżka posiadająca &dwiele zaklęć&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fKliknij &eLPM&f, aby zmienić &aczar"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fKliknij &ePPM&f, aby rzucić &6zaklęcie"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM2.setLore(lore);
+            itemM2.setCustomModelData(1);
+            itemM2.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            itemM2.addEnchant(Enchantment.DURABILITY, 10, true);
+            item2.setItemMeta(itemM2);
+            gui.setItem(1,item2);
+            ItemStack item3 = new ItemStack(Material.SNOWBALL);
+            ItemMeta itemM3 = item3.getItemMeta();
+            itemM3.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&F&F&9&F&3&3ᴅ&x&F&5&9&9&3&3ʏ&x&E&A&9&2&3&3ɴ&x&E&0&8&C&3&2ɪ&x&D&5&8&6&3&2ᴏ&x&C&B&7&F&3&2ɢ&x&C&0&7&9&3&2ʟ&x&B&6&7&2&3&2ᴏ&x&A&B&6&C&3&2ᴡ&x&A&1&6&6&3&1ʏ &x&8&C&5&9&3&1ɢ&x&8&C&5&9&3&1ʀ&x&8&C&5&9&3&1ᴀ&x&8&C&5&9&3&1ɴ&x&8&C&5&9&3&1ᴀ&x&8&C&5&9&3&1ᴛ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fJednorazowy przedmiot rzucany, po użyciu hełmy"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fosób dotkniętych czarem zostają &6zmienione w dynie"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fna okres &a15 sekund&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM3.setLore(lore);
+            itemM3.setCustomModelData(1);
+            item3.setItemMeta(itemM3);
+            gui.setItem(2, item3);
+            ItemStack item4 = new ItemStack(Material.EXPERIENCE_BOTTLE);
+            ItemMeta itemM4 = item4.getItemMeta();
+            itemM4.setCustomModelData(1);
+            itemM4.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&6&C&F&F&E&1ɢ&x&6&C&F&8&D&4ᴜ&x&6&C&F&1&C&8ᴍ&x&6&B&E&A&B&Bᴋ&x&6&B&E&3&A&Eᴀ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fGumka szkolna posiadająca"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fmożliwość &dprzebicia kartki&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fKliknij &ePPM&f, aby wymazać &6podłoge&f!"));
+            itemM4.setLore(lore);
+            itemM4.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            itemM4.addEnchant(Enchantment.DURABILITY, 10, true);
+            item4.setItemMeta(itemM4);
+            gui.setItem(3, item4);
+            p.openInventory(gui);
+            ItemStack item5 = new ItemStack(Material.ENCHANTED_BOOK);
+            ItemMeta itemM5 = item5.getItemMeta();
+            itemM5.setCustomModelData(2);
+            itemM5.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&F&F&5&D&0&0ѕ&x&F&F&5&C&0&0ɪ&x&F&F&5&A&0&0ʟ&x&F&F&5&9&0&0ᴀ&x&F&F&5&7&0&0ᴄ&x&F&F&5&6&0&0ᴢ &x&F&F&5&3&0&0ᴛ&x&F&F&5&1&0&0ʏ&x&F&F&5&0&0&0ɢ&x&F&F&4&E&0&0ᴏ&x&F&F&4&D&0&0ᴅ&x&F&F&4&B&0&0ɴ&x&F&F&4&A&0&0ɪ&x&F&F&4&8&0&0ᴀ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz &cbardzo silny&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM5.setLore(lore);
+            item5.setItemMeta(itemM5);
+            gui.setItem(4, item5);
+            ItemStack item6 = new ItemStack(Material.ENCHANTED_BOOK);
+            ItemMeta itemM6 = item6.getItemMeta();
+            itemM6.setCustomModelData(3);
+            itemM6.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&3&3&A&C&F&Fᴘ&x&2&D&A&2&F&Fᴇ&x&2&8&9&7&F&Fᴅ&x&2&2&8&D&F&Fᴢ&x&1&C&8&3&F&Fɪ&x&1&7&7&8&F&Fᴡ&x&1&1&6&E&F&Fɪ&x&0&B&6&4&F&Fᴀ&x&0&6&5&9&F&Fᴛ&x&0&0&4&F&F&Fʀ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł &bszybko uciekać&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM6.setLore(lore);
+            item6.setItemMeta(itemM6);
+            gui.setItem(5, item6);
+            ItemStack item7 = new ItemStack(Material.ENCHANTED_BOOK);
+            ItemMeta itemM7 = item7.getItemMeta();
+            itemM7.setCustomModelData(4);
+            itemM7.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&D&A&E&5&1&8ɢ&x&D&6&D&F&1&Cᴏ&x&D&3&D&9&2&0ʀ&x&C&F&D&3&2&4ɴ&x&C&B&C&E&2&9ɪ&x&C&8&C&8&2&Dᴋ &x&C&1&B&C&3&5ᴍ&x&B&D&B&6&3&9ɪ&x&B&9&B&0&3&Dᴇ&x&B&6&A&A&4&1ѕ&x&B&2&A&5&4&6ɪ&x&A&E&9&F&4&Aᴀ&x&A&B&9&9&4&Eᴄ&x&A&7&9&3&5&2ᴀ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł &eszybko kopać&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM7.setLore(lore);
+            item7.setItemMeta(itemM7);
+            gui.setItem(6, item7);
+            ItemStack item8 = new ItemStack(Material.ENCHANTED_BOOK);
+            ItemMeta itemM8 = item8.getItemMeta();
+            itemM8.setCustomModelData(5);
+            itemM8.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&C&D&5&2&3&3ѕ&x&C&6&4&D&3&3ᴜ&x&B&F&4&9&3&2ᴘ&x&B&8&4&4&3&2ᴇ&x&B&2&3&F&3&2ʀ&x&A&B&3&A&3&2ᴍ&x&A&4&3&6&3&1ᴀ&x&9&D&3&1&3&1ɴ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł wystrzeliwać graczy w &6powietrze&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM8.setLore(lore);
+            item8.setItemMeta(itemM8);
+            gui.setItem(7, item8);
+            ItemStack item9 = new ItemStack(Material.IRON_AXE);
+            ItemMeta itemM9 = item9.getItemMeta();
+            itemM9.setCustomModelData(1);
+            itemM9.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&D&D&D&D&D&DMace"));
+            item9.setItemMeta(itemM9);
+            gui.setItem(9, item9);
+            ItemStack item10 = new ItemStack(Material.ENCHANTED_BOOK);
+            ItemMeta itemM10 = item10.getItemMeta();
+            itemM10.setCustomModelData(6);
+            itemM10.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&x&2&8&A&E&C&8ʟ&x&2&9&A&A&C&5ᴀ&x&2&9&A&6&C&2ᴛ&x&2&A&A&2&B&Fᴀ&x&2&A&9&E&B&Dᴄ &x&2&C&9&6&B&7ᴋ&x&2&C&9&2&B&4ᴀ&x&2&D&8&D&B&1ᴢ&x&2&D&8&9&A&Eᴅ&x&2&E&8&5&A&Bʏ &x&2&F&7&D&A&6ᴍ&x&3&0&7&9&A&3ᴏ&x&3&0&7&5&A&0ᴢ&x&3&1&7&1&9&Dᴇ"));
+            lore.clear();
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fPotężne zaklęcie posiadające &aczar&f!"));
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &fDzięki niemu będziesz mógł wystrzeliwać siebie w &bpowietrze&f!"));
+            lore.add("");
+            lore.add(ChatColor.translateAlternateColorCodes('&', "&8x &7Przedmiot pochodzi z eventu &6ʜᴀʟʟᴏᴡᴇᴇɴ 2024"));
+            itemM10.setLore(lore);
+            item10.setItemMeta(itemM10);
+            gui.setItem(8, item10);
+
+            return true;
+        }
+        return false;
+    }
+}
