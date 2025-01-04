@@ -1,0 +1,253 @@
+package pl.oszymono.group.boostmobranking;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.WitherSkeleton;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.*;
+import org.checkerframework.checker.units.qual.C;
+import pl.oszymono.group.boostmobranking.manager.ConfigManager;
+
+import java.util.*;
+
+public final class Boost_MobRanking extends JavaPlugin implements Listener, CommandExecutor {
+
+    Map<String, Integer> k = new HashMap<String, Integer>();
+
+    NamespacedKey NSK = new NamespacedKey(this, "boss");
+
+    ConfigManager cm;
+
+    @Override
+    public void onEnable() {
+        cm = new ConfigManager(getConfig());
+        getServer().getPluginManager().registerEvents(this, this);
+        getCommand("summon-boss").setExecutor(this::summonBoss);
+        getCommand("set-config").setExecutor(this::setConfig);
+        getCommand("set-config").setTabCompleter(this);
+        saveConfig();
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> list = new ArrayList<String>();
+
+        if (list.isEmpty()) {
+            list.add("top1");
+            list.add("top2");
+            list.add("top3");
+        }
+
+        List<String> ret = new ArrayList<String>();
+
+        if (args.length == 1) {
+            for (String str : list) {
+                if (args[0].toLowerCase().startsWith(str)) {
+                    ret.add(str);
+                }
+            }
+        }
+        return ret;
+    }
+
+    @EventHandler
+    public void onEntityDamageEntity(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player) {
+            Player p = (Player) e.getDamager();
+            if (Objects.requireNonNull(e.getEntity().getPersistentDataContainer().get(NSK, PersistentDataType.STRING)).equalsIgnoreCase("DS")) {
+                if (k.get(p.getName()) == null) {
+                    k.put(p.getName(), (int) (e.getDamage()));
+                } else {
+                    k.put(p.getName(), (int) (e.getDamage()) + k.get(p.getName()));
+                }
+            }
+        }
+    }
+
+    public boolean setConfig(CommandSender sender, Command command, String label, String[] args) {
+        if (sender instanceof Player) {
+            Player p = (Player) sender;
+            if (p.getInventory().getItemInMainHand() != null && p.getInventory().getItemInMainHand().getType() != Material.AIR) {
+                if (args.length != 1) return false;
+                if (args[0].equalsIgnoreCase("top1")) {
+                    cm.setTopOne(p.getInventory().getItemInMainHand());
+                } else if (args[0].equalsIgnoreCase("top2")) {
+                    cm.setSecondOne(p.getInventory().getItemInMainHand());
+                } else if (args[0].equalsIgnoreCase("top3")) {
+                    cm.setThirdOne(p.getInventory().getItemInMainHand());
+                }
+            }
+            saveConfig();
+            return true;
+        }
+        return false;
+    }
+
+    @EventHandler
+    public void onDeath(EntityDeathEvent e) {
+        if (e.getEntity().getPersistentDataContainer().get(NSK, PersistentDataType.STRING).equalsIgnoreCase("DS")) {
+            e.getEntity().getWorld().strikeLightning(e.getEntity().getLocation());
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', "&c&lBoss &fzostał wyeliminowany!"));
+            HashMap<String, Integer> sorted = sortByValue((HashMap<String, Integer>) k);
+            int c = 0;
+            for (String key : sorted.keySet()) {
+                c += 1;
+                if (c == 1) {
+                    Player p = Bukkit.getPlayer(key);
+                    ItemStack item = cm.getTopOne();
+                    p.getInventory().addItem(item);
+                } else if (c == 2) {
+                    Player p = Bukkit.getPlayer(key);
+                    ItemStack item = cm.getSecondOne();
+                    p.getInventory().addItem(item);
+                } else if (c == 3) {
+                    Player p = Bukkit.getPlayer(key);
+                    ItemStack item = cm.getThirdOne();
+                    p.getInventory().addItem(item);
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    public boolean summonBoss(CommandSender sender, Command command, String label, String[] args) {
+        if (sender instanceof Player) {
+            Player p = (Player) sender;
+
+            WitherSkeleton boss = (WitherSkeleton) p.getWorld().spawnEntity(p.getLocation(), cm.getMobType());
+            boss.setMaxHealth(1500.0);
+            boss.setHealth(1500.0);
+            boss.getPersistentDataContainer().set(NSK, PersistentDataType.STRING, "DS");
+            new BukkitRunnable(){
+                @Override
+                public void run() {
+                    if (boss.isDead()) {
+                        for (Player plr : Bukkit.getOnlinePlayers()) {
+                            Scoreboard scr = Bukkit.getScoreboardManager().getMainScoreboard();
+                            plr.setScoreboard(scr);
+                        }
+                        k.clear();
+                        cancel();
+                    } else {
+
+                        for (Player plr : Bukkit.getOnlinePlayers()) {
+                            Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
+                            Objective obj = scoreboard.registerNewObjective("life", "dummy");
+                            obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+                            obj.setDisplayName(ChatColor.WHITE + "" + ChatColor.BOLD + "EVENT" + ChatColor.RED + "" + ChatColor.BOLD + " BOSS");
+
+                            obj.getScore(ChatColor.translateAlternateColorCodes('&', "&fKrytyczny szkielet &7zmartwychwstał!")).setScore(9);
+                            obj.getScore(ChatColor.translateAlternateColorCodes('&', "&7Koordynaty: &f" + String.valueOf((int) (boss.getLocation().getX())) + " " + String.valueOf((int) (boss.getLocation().getY())) + " " + String.valueOf((int) (boss.getLocation().getZ())))).setScore(8);
+                            obj.getScore(ChatColor.translateAlternateColorCodes('&', "&7Pozostałe zdrowie &c" + String.valueOf((int) (boss.getHealth())) + "HP")).setScore(7);
+                            obj.getScore(" ").setScore(6);
+                            obj.getScore(ChatColor.translateAlternateColorCodes('&', "&eTOP 3 OBRAŻEŃ")).setScore(5);
+                            if (k.isEmpty()) {
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#1. &7Brak &8>> &cBrak")).setScore(4);
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#2. &7Brak &8>> &cBrak")).setScore(3);
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#3. &7Brak &8>> &cBrak")).setScore(2);
+                            } else if (k.size() == 1) {
+                                Map<String, Integer> sorted = sortByValue((HashMap<String, Integer>) k);
+                                int count = 0;
+                                for (String key : sorted.keySet()) {
+                                    count += 1;
+                                    if (count == 1) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#1. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(4);
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#2. &7Brak &8>> &cBrak")).setScore(3);
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#3. &7Brak &8>> &cBrak")).setScore(2);
+                            } else if (k.size() == 2) {
+                                Map<String, Integer> sorted = sortByValue((HashMap<String, Integer>) k);
+                                int count = 0;
+                                for (String key : sorted.keySet()) {
+                                    count += 1;
+                                    if (count == 1) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#1. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(4);
+                                    } else if (count == 2) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#2. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(4);
+                                    }else {
+                                        break;
+                                    }
+                                }
+                                obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#3. &7Brak &8>> &cBrak")).setScore(2);
+                            } else {
+                                Map<String, Integer> sorted = sortByValue((HashMap<String, Integer>) k);
+                                int count = 0;
+                                for (String key : sorted.keySet()) {
+                                    count += 1;
+                                    if (count == 1) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#1. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(4);
+                                    } else if (count == 2) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#2. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(3);
+                                    } else if (count == 3) {
+                                        obj.getScore(ChatColor.translateAlternateColorCodes('&', "&8#3. &7" + key + " &8>> &c" + sorted.get(key) + "⚔")).setScore(2);
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            obj.getScore("").setScore(1);
+                            if (boss.getWorld().getName().equalsIgnoreCase(plr.getWorld().getName())) {
+
+                                if (k.get(plr.getName()) == null) {
+                                    obj.getScore(ChatColor.translateAlternateColorCodes('&', "&7Twoje obrażenia: &cBrak")).setScore(0);
+                                } else {
+                                    obj.getScore(ChatColor.translateAlternateColorCodes('&', "&7Twoje obrażenia: &c" + k.get(plr.getName()) + "⚔")).setScore(0);
+                                }
+                                plr.setScoreboard(scoreboard);
+                            } else {
+                                Scoreboard scr = Bukkit.getScoreboardManager().getMainScoreboard();
+                                plr.setScoreboard(scr);
+                            }
+                        }
+                    }
+                }
+            }.runTaskTimer(this, 0, 10);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public static HashMap<String, Integer> sortByValue(HashMap<String, Integer> hm)
+    {
+        List<Map.Entry<String, Integer> > list =
+                new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
+
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer> >() {
+            public int compare(Map.Entry<String, Integer> o1,
+                               Map.Entry<String, Integer> o2)
+            {
+                return (o2.getValue()).compareTo(o1.getValue());
+            }
+        });
+
+        HashMap<String, Integer> temp = new LinkedHashMap<String, Integer>();
+        for (Map.Entry<String, Integer> aa : list) {
+            temp.put(aa.getKey(), aa.getValue());
+        }
+        return temp;
+    }
+
+}
