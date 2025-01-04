@@ -37,8 +37,4 @@ public class ConfigManager {
     public void setThirdOne(ItemStack item) {
         config.set("top3", item);
     }
-
-    public EntityType getMobType() {
-        return EntityType.valueOf(config.getString("mob").toUpperCase());
-    }
 }
