@@ -133,7 +133,7 @@ public final class Boost_MobRanking extends JavaPlugin implements Listener, Comm
         if (sender instanceof Player) {
             Player p = (Player) sender;
 
-            WitherSkeleton boss = (WitherSkeleton) p.getWorld().spawnEntity(p.getLocation(), cm.getMobType());
+            WitherSkeleton boss = (WitherSkeleton) p.getWorld().spawnEntity(p.getLocation(), EntityType.WITHER_SKELETON);
             boss.setMaxHealth(1500.0);
             boss.setHealth(1500.0);
             boss.getPersistentDataContainer().set(NSK, PersistentDataType.STRING, "DS");
